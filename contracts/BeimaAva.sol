@@ -146,18 +146,18 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
     }
 
 
-    function depositToken (address _asset, uint _amount)public {
+    function depositToken ()public {
         User memory user = pensionServiceApplicant[msg.sender];
         require(user.client.approvedAmountToSpend >= user.client.amountToSpend, "You have execeeded the approved amount for this plan, please make another plan");
         require(isRegistered[msg.sender], "Caller not registered");
         require(user.client.hasPlan, "Caller has no plan");
 		require(_asset != ETHER, "Address is invalid");
-		require(IERC20(_asset).transferFrom(msg.sender, address(this), _amount), "Deposit has failed");
-		assets[_asset][msg.sender] = assets[_asset][msg.sender].add(_amount);
-        unsuppliedAmount[msg.sender] = unsuppliedAmount[msg.sender].add(_amount);
-        user.client.approvedAmountToSpend = user.client.approvedAmountToSpend.sub(_amount);
+		IERC20(user.client.underlyingAsset).transferFrom(msg.sender, address(this), user.client.amountToSpend);
+		assets[user.client.underlyingAsset][msg.sender] = assets[user.client.underlyingAsset][msg.sender].add(user.client.amountToSpend);
+        unsuppliedAmount[msg.sender] = unsuppliedAmount[msg.sender].add(user.client.amountToSpend);
+        user.client.approvedAmountToSpend = user.client.approvedAmountToSpend.sub(user.client.amountToSpend);
         ccInterest = ccInterest.add(1);
-		emit Deposit (msg.sender, address(this), assets[_asset][msg.sender]);
+		emit Deposit (msg.sender, address(this), assets[user.client.underlyingAsset][msg.sender]);
 	}
 
 
@@ -259,7 +259,7 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
         uint _lockTime) 
         public {
         require(_approvedAmountToSpend > _amountToSpend, "Set an amount greater than the recurring amount");
-        require(_amountToSpend > 0, "approve an amount greater than 0");
+        require(_amountToSpend >= 0, "approve an amount greater than 0");
         require(isRegistered[msg.sender], "Caller has to be Registered");
         User storage user = pensionServiceApplicant[msg.sender];
         require(user.client.lockTime == 0, "Caller already has a lock Time Set");

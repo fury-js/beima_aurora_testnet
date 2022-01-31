@@ -421,7 +421,7 @@ const usdteAbi = [
 				},
 	];
 
-const usdteAddress = '0xface851a4921ce59e912d19329929ce6da6eb0c7';
+const usdteAddress = '0xc7198437980c041c805a1edcba50c1ce5db95118';
 
 require('chai')
 .use(require('chai-as-promised'))
@@ -439,9 +439,9 @@ contract('Pension Service Provider', ([owner, applicant]) => {
     let userDetails = 'chukky';
     let upkeepInterval = 1;
     let pensionPlanDetails = "Flexible";
-    let amountToSpend = web3.utils.toWei("1000", 'ether');  // 1 usdc tokens
+    let amountToSpend = web3.utils.toWei("1", 'ether');  // 1 usdc tokens
     let approvedAmountToSpend = web3.utils.toWei('10000', 'ether');  // 10 link 
-    const usdt_e = new web3.eth.Contract(usdteAbi, usdteAddress);
+    
     let timeDuration = 0
     let lockTime = 1
 
@@ -452,14 +452,13 @@ contract('Pension Service Provider', ([owner, applicant]) => {
 
 
 
-     const unlockedAccount = '0x0d26d103c91f63052fbca88aaf01d5304ae40015';
+     const unlockedAccount = '0x5034c9baB6CF82AD20Daa30D89666Eb2344F476A';
 
  
 
     const fromUnlockedAccount = {
 			from: unlockedAccount,
-			gasLimit: web3.utils.toHex(500000),
-			gasPrice: web3.utils.toHex(21875000000), // use ethgasstation.info (mainnet only)
+			
 		};
 
 
@@ -468,13 +467,12 @@ contract('Pension Service Provider', ([owner, applicant]) => {
     beforeEach(async () => {
 
         // load contracts
-        // busd = await BUSD.new();
         pensionContract = await PensionServiceProvider.new(
-                    yakVaultAddress,
-					upkeepInterval,
-				);
-        let usdt_e = new web3.eth.Contract(usdteAbi, usdteAddress);
-        // console.log(usdc_kovan)
+            yakVaultAddress,
+			upkeepInterval,
+		);
+		usdt_e = new web3.eth.Contract(usdteAbi, usdteAddress);
+        
 
 
     })         
@@ -482,20 +480,22 @@ contract('Pension Service Provider', ([owner, applicant]) => {
         
         it("Register's Applicants", async () => {
               // register a company
-            let result = await pensionContract.register(userDetails )
+            let result = await pensionContract.register(userDetails, fromUnlockedAccount)
             // console.log(result.logs[0].args);               
 
         })
 
         it("Accepts Deposits and Invests", async () => {
-            await pensionContract.register(userDetails);
-            await pensionContract.setPlan(usdteAddress, pensionPlanDetails, approvedAmountToSpend, amountToSpend, timeDuration, lockTime)
-            let approveResult = await usdt_e.methods.approve(pensionContract.address, amountToSpend).send({from: owner});
-            let deposit = await pensionContract.depositToken(usdteAddress, amountToSpend)
-            console.log("First deposit:", deposit.logs[0].args.amountSpent.toString())
+            await pensionContract.register(userDetails, fromUnlockedAccount);
+            await pensionContract.setPlan(usdteAddress, pensionPlanDetails, approvedAmountToSpend, amountToSpend, timeDuration, lockTime, fromUnlockedAccount)
+            await usdt_e.methods.approve(PensionServiceProvider.address, amountToSpend).send(fromUnlockedAccount);
+        	await pensionContract.depositToken({from: unlockedAccount})
+        //     console.log("First deposit:", deposit.logs[0].args.amountSpent.toString())
             let user = await pensionContract.pensionServiceApplicant(unlockedAccount);
 
-            await pensionContract.supply(user.client.underlyingAsset)
+			console.log(user)
+
+        //     await pensionContract.supply(user.client.underlyingAsset, fromUnlockedAccount)
         })   
     })
     
