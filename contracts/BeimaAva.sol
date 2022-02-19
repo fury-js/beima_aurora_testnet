@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "./YakVaultInterface.sol";
+import "./DInterface.sol";
 
 
 
@@ -18,7 +18,7 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
     using Counters for Counters.Counter;
 
     // variables
-    YakVaultInterface public yakVault;
+    DInterface public D;
     Counters.Counter private id;
     uint balance;
 
@@ -59,13 +59,6 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
 
     }
 
-
-
-    
-
-    
-
-
     event Register(address indexed applicant, string indexed applicantDetails);
     event Withdraw(address from, address to, uint amount);
     event Deposit(address indexed sender, address receiver, uint indexed amountSpent);
@@ -89,9 +82,9 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
     User[] public users;
 
 
-    constructor(address _yakVault, uint256 _upKeepInterval)  {
+    constructor(address _d, uint256 _upKeepInterval)  {
         // xend = IERC20(_xend);
-        yakVault = YakVaultInterface(_yakVault);
+        D = DInterface(_d);
         ccInterest = uint256(3 ether).div(10); // .3% 
         lastTimeStamp = block.timestamp;
         upKeepInterval = _upKeepInterval;
@@ -146,12 +139,12 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
     }
 
 
-    function depositToken (address _asset, uint _amount)public {
+    function depositToken (address _asset, uint _amount) public {
         User memory user = pensionServiceApplicant[msg.sender];
         require(user.client.approvedAmountToSpend >= user.client.amountToSpend, "You have execeeded the approved amount for this plan, please make another plan");
         require(isRegistered[msg.sender], "Caller not registered");
-        require(user.client.hasPlan, "Caller has no plan");
-		require(_asset != ETHER, "Address is invalid");
+        // require(user.client.hasPlan, "Caller has no plan");
+		require(_asset != ETHER, "Address is invalid"); 
 		require(IERC20(_asset).transferFrom(msg.sender, address(this), _amount), "Deposit has failed");
 		assets[_asset][msg.sender] = assets[_asset][msg.sender].add(_amount);
         unsuppliedAmount[msg.sender] = unsuppliedAmount[msg.sender].add(_amount);
@@ -223,16 +216,16 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
         require(isRegistered[msg.sender], "Caller not registered");
         require(unsuppliedAmount[msg.sender] > 0, "Amount cannot be 0");
 		User memory user = pensionServiceApplicant[msg.sender];
-		IERC20(user.client.underlyingAsset).approve(address(yakVault), unsuppliedAmount[msg.sender]);
+		IERC20(user.client.underlyingAsset).approve(address(D), unsuppliedAmount[msg.sender]);
 
-		yakVault.deposit(user.client.underlyingAsset, unsuppliedAmount[msg.sender]);
+		// D.deposit(user.client.underlyingAsset, unsuppliedAmount[msg.sender]);
         stakedBalance[msg.sender] = stakedBalance[msg.sender].add(unsuppliedAmount[msg.sender]);
         unsuppliedAmount[msg.sender] = unsuppliedAmount[msg.sender].sub(unsuppliedAmount[msg.sender]);
         emit Supply(msg.sender, stakedBalance[msg.sender]);
 	}
 
 
-    function withdrawFromYieldYakVault(
+    function withdrawFromYieldD(
         address _cErc20Contract
     ) public nonReentrant()  {
         require(isRegistered[msg.sender], "Caller not registered");
@@ -242,7 +235,7 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
       
         uint256 redeemResult;
 
-        yakVault.withdraw(stakedBalance[msg.sender]);
+        D.withdraw(stakedBalance[msg.sender]);
         hasRedeemed[msg.sender] = true;
         stakedBalance[msg.sender] = stakedBalance[msg.sender].sub(stakedBalance[msg.sender]);
 
@@ -274,11 +267,10 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
         emit Plan(msg.sender, user.client.ipfsHashOfUserPensionDetails, user.client.lockTime);
     }
 
-    // function getAssetAddress(address ctokenAddress) public view returns(address) {
-    //     CTokenInterface cToken = CTokenInterface(ctokenAddress);
-    //     return cToken.underlying();
-
-    // }
+    function getAssetAddress(address ctokenAddress) public view returns(address) {
+        User memory user = pensionServiceApplicant[msg.sender];
+        return user.client.underlyingAsset;
+    }
 
     // function getAccruedInterest(address _asset) public view returns(uint) {
     //     User memory user = pensionServiceApplicant[msg.sender];
@@ -294,12 +286,12 @@ contract BeimaAva is ReentrancyGuard, Pausable, Ownable{
         require(IERC20(_asset).transfer(admin, assets[_asset][address(this)]));
     }
 
-    // helper function to be deleted on migration to mainet
+    // helper function to be deleted on migration to mainnet
     function updateLockTime() public {
         require(isRegistered[msg.sender], "caller is not registered");
         User storage user = pensionServiceApplicant[msg.sender];
         user.client.lockTime = 0;
     }
-
+ 
 
 }
